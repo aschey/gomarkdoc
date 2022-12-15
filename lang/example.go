@@ -9,15 +9,17 @@ import (
 
 // Example holds a single documentation example for a package or symbol.
 type Example struct {
-	cfg  *Config
-	name string
-	doc  *doc.Example
+	cfg         *Config
+	docPkg      *doc.Package
+	allPackages []*doc.Package
+	name        string
+	doc         *doc.Example
 }
 
 // NewExample creates a new example from the example function's name, its
 // documentation example and the files holding code related to the example.
-func NewExample(cfg *Config, name string, doc *doc.Example) *Example {
-	return &Example{cfg, name, doc}
+func NewExample(cfg *Config, docPkg *doc.Package, allPackages []*doc.Package, name string, doc *doc.Example) *Example {
+	return &Example{cfg, docPkg, allPackages, name, doc}
 }
 
 // Level provides the default level that headers for the example should be
@@ -58,7 +60,7 @@ func (ex *Example) Summary() string {
 // Doc provides the structured contents of the documentation comment for the
 // example.
 func (ex *Example) Doc() *Doc {
-	return NewDoc(ex.cfg.Inc(1), ex.doc.Doc)
+	return NewDoc(ex.cfg.Inc(1), ex.docPkg, ex.allPackages, ex.doc.Doc)
 }
 
 // Code provides the raw text code representation of the example's contents.

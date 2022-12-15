@@ -2,6 +2,7 @@ package lang_test
 
 import (
 	"errors"
+	"go/doc"
 	"testing"
 
 	"github.com/matryer/is"
@@ -29,7 +30,7 @@ func TestFunc_netHttpResponseWriter(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	var typ *lang.Type
@@ -122,7 +123,7 @@ func TestFunc_netHttpResponse(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	var typ *lang.Type
@@ -242,7 +243,7 @@ func loadType(dir, name string) (*lang.Type, error) {
 	}
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	if err != nil {
 		return nil, err
 	}

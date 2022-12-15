@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"go/build"
+	"go/doc"
 	"hash/fnv"
 	"html/template"
 	"io"
@@ -292,13 +293,17 @@ func runCommand(paths []string, opts commandOptions) error {
 		return fmt.Errorf("gomarkdoc: invalid output template: %w", err)
 	}
 
+	// TODO: customize path
+	rootSpecs := getSpecs("./...")
+	rootPackages := loadRootPackages(rootSpecs, opts)
+
 	specs := getSpecs(paths...)
 
 	if err := resolveOutput(specs, outputTmpl); err != nil {
 		return err
 	}
 
-	if err := loadPackages(specs, opts); err != nil {
+	if err := loadPackages(specs, rootPackages, opts); err != nil {
 		return err
 	}
 
@@ -399,7 +404,31 @@ func resolveFooter(opts commandOptions) (string, error) {
 	return "", nil
 }
 
-func loadPackages(specs []*PackageSpec, opts commandOptions) error {
+func loadRootPackages(specs []*PackageSpec, opts commandOptions) []*doc.Package {
+	docPkgs := []*doc.Package{}
+	for _, spec := range specs {
+		log := logger.New(getLogLevel(opts.verbosity), logger.WithField("dir", spec.Dir))
+
+		buildPkg, err := getBuildPackage(spec.ImportPath, opts.tags)
+		if err != nil {
+			continue
+		}
+		var pkgOpts []lang.PackageOption
+		pkgOpts = append(pkgOpts, lang.PackageWithRepositoryOverrides(&opts.repository))
+
+		if opts.includeUnexported {
+			pkgOpts = append(pkgOpts, lang.PackageWithUnexportedIncluded())
+		}
+		pkg, err := lang.GetDocPackage(buildPkg, log, pkgOpts...)
+		if err != nil {
+			continue
+		}
+		docPkgs = append(docPkgs, pkg)
+	}
+	return docPkgs
+}
+
+func loadPackages(specs []*PackageSpec, allPackages []*doc.Package, opts commandOptions) error {
 	for _, spec := range specs {
 		log := logger.New(getLogLevel(opts.verbosity), logger.WithField("dir", spec.Dir))
 
@@ -421,8 +450,11 @@ func loadPackages(specs []*PackageSpec, opts commandOptions) error {
 			pkgOpts = append(pkgOpts, lang.PackageWithUnexportedIncluded())
 		}
 
-		pkg, err := lang.NewPackageFromBuild(log, buildPkg, pkgOpts...)
+		pkg, err := lang.NewPackageFromBuild(log, buildPkg, allPackages, pkgOpts...)
 		if err != nil {
+			if spec.isWildcard {
+				continue
+			}
 			return err
 		}
 
@@ -552,7 +584,8 @@ func getSpecs(paths ...string) []*PackageSpec {
 	return expanded
 }
 
-var ignoredDirs = []string{".git"}
+// TODO: customize
+var ignoredDirs = []string{".git", "node_modules", "docs", "examples"}
 
 // isIgnoredDir identifies if the dir is one we want to intentionally ignore.
 func isIgnoredDir(dirname string) bool {

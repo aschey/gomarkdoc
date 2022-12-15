@@ -60,6 +60,7 @@ func NewRenderer(opts ...RendererOption) (*Renderer, error) {
 				"rawHeader":           renderer.format.RawHeader,
 				"codeBlock":           renderer.format.CodeBlock,
 				"link":                renderer.format.Link,
+				"docLink":             renderer.format.DocLink,
 				"listEntry":           renderer.format.ListEntry,
 				"accordion":           renderer.format.Accordion,
 				"accordionHeader":     renderer.format.AccordionHeader,
@@ -68,6 +69,7 @@ func NewRenderer(opts ...RendererOption) (*Renderer, error) {
 				"codeHref":            renderer.format.CodeHref,
 				"paragraph":           renderer.format.Paragraph,
 				"escape":              renderer.format.Escape,
+				"exec":                execTemplate(tmpl),
 			})
 
 			if _, err := tmpl.Parse(tmplStr); err != nil {
@@ -81,6 +83,14 @@ func NewRenderer(opts ...RendererOption) (*Renderer, error) {
 	}
 
 	return renderer, nil
+}
+
+func execTemplate(t *template.Template) func(string, interface{}) (string, error) {
+	return func(name string, v interface{}) (string, error) {
+		var buf strings.Builder
+		err := t.ExecuteTemplate(&buf, name, v)
+		return buf.String(), err
+	}
 }
 
 // WithTemplateOverride adds a template that overrides the template with the

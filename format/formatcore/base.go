@@ -83,6 +83,17 @@ func Link(text, href string) string {
 	return fmt.Sprintf("[%s](<%s>)", text, href)
 }
 
+func DocLink(text, path, href string) string {
+	if text == "" {
+		return ""
+	}
+
+	if href == "" {
+		return text
+	}
+	return fmt.Sprintf("[%s](%s%s)", text, path, href)
+}
+
 // ListEntry generates an unordered list entry with the provided text at the
 // provided zero-indexed depth. A depth of 0 is considered the topmost level of
 // list.
@@ -124,7 +135,7 @@ func GFMAccordionTerminator() string {
 
 // Paragraph formats a paragraph with the provided text as the contents.
 func Paragraph(text string) string {
-	return fmt.Sprintf("%s\n\n", Escape(text))
+	return fmt.Sprintf("%s\n\n", text)
 }
 
 var (

@@ -10,16 +10,18 @@ import (
 // Func holds documentation information for a single func declaration within a
 // package or type.
 type Func struct {
-	cfg      *Config
-	doc      *doc.Func
-	examples []*doc.Example
+	cfg         *Config
+	docPkg      *doc.Package
+	allPackages []*doc.Package
+	doc         *doc.Func
+	examples    []*doc.Example
 }
 
 // NewFunc creates a new Func from the corresponding documentation construct
 // from the standard library, the related token.FileSet for the package and
 // the list of examples for the package.
-func NewFunc(cfg *Config, doc *doc.Func, examples []*doc.Example) *Func {
-	return &Func{cfg, doc, examples}
+func NewFunc(cfg *Config, docPkg *doc.Package, allPackages []*doc.Package, doc *doc.Func, examples []*doc.Example) *Func {
+	return &Func{cfg, docPkg, allPackages, doc, examples}
 }
 
 // Level provides the default level at which headers for the func should be
@@ -64,7 +66,7 @@ func (fn *Func) Summary() string {
 // Doc provides the structured contents of the documentation comment for the
 // function.
 func (fn *Func) Doc() *Doc {
-	return NewDoc(fn.cfg.Inc(1), fn.doc.Doc)
+	return NewDoc(fn.cfg.Inc(1), fn.docPkg, fn.allPackages, fn.doc.Doc)
 }
 
 // Signature provides the raw text representation of the code for the
@@ -97,7 +99,7 @@ func (fn *Func) Examples() (examples []*Example) {
 			continue
 		}
 
-		examples = append(examples, NewExample(fn.cfg.Inc(1), name, example))
+		examples = append(examples, NewExample(fn.cfg.Inc(1), fn.docPkg, fn.allPackages, name, example))
 	}
 
 	return

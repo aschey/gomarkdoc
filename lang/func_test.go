@@ -2,6 +2,7 @@ package lang_test
 
 import (
 	"errors"
+	"go/doc"
 	"strings"
 	"testing"
 
@@ -137,7 +138,7 @@ func TestFunc_stringsCompare(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	var fn *lang.Func
@@ -168,7 +169,7 @@ func TestFunc_textScannerInit(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	var typ *lang.Type
@@ -208,7 +209,7 @@ func TestFunc_ioIoutilTempFile(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	var fn *lang.Func
@@ -239,7 +240,7 @@ func loadFunc(dir, name string) (*lang.Func, error) {
 	}
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	if err != nil {
 		return nil, err
 	}

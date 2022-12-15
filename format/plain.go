@@ -51,6 +51,10 @@ func (f *PlainMarkdown) Link(text, href string) (string, error) {
 	return formatcore.Link(text, href), nil
 }
 
+func (f *PlainMarkdown) DocLink(text, path, href string) (string, error) {
+	return formatcore.DocLink(text, path, href), nil
+}
+
 // ListEntry generates an unordered list entry with the provided text at the
 // provided zero-indexed depth. A depth of 0 is considered the topmost level of
 // list.

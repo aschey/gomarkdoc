@@ -6,7 +6,7 @@ type (
 	Block struct {
 		cfg  *Config
 		kind BlockKind
-		text string
+		text *Text
 	}
 
 	// BlockKind identifies the type of block element represented by the
@@ -23,11 +23,13 @@ const (
 
 	// HeaderBlock defines a block that represents a section header.
 	HeaderBlock BlockKind = "header"
+
+	ListBlock BlockKind = "list"
 )
 
 // NewBlock creates a new block element of the provided kind and with the given
 // text contents.
-func NewBlock(cfg *Config, kind BlockKind, text string) *Block {
+func NewBlock(cfg *Config, kind BlockKind, text *Text) *Block {
 	return &Block{cfg, kind, text}
 }
 
@@ -46,6 +48,6 @@ func (b *Block) Kind() BlockKind {
 // Text provides the raw text of the block's contents. The text is pre-scrubbed
 // and sanitized as determined by the block's Kind(), but it is not wrapped in
 // any special constructs for rendering purposes (such as markdown code blocks).
-func (b *Block) Text() string {
+func (b *Block) Text() *Text {
 	return b.text
 }

@@ -8,16 +8,18 @@ import (
 
 // Type holds documentation information for a type declaration.
 type Type struct {
-	cfg      *Config
-	doc      *doc.Type
-	examples []*doc.Example
+	cfg         *Config
+	docPkg      *doc.Package
+	allPackages []*doc.Package
+	doc         *doc.Type
+	examples    []*doc.Example
 }
 
 // NewType creates a Type from the raw documentation representation of the type,
 // the token.FileSet for the package's files and the full list of examples from
 // the containing package.
-func NewType(cfg *Config, doc *doc.Type, examples []*doc.Example) *Type {
-	return &Type{cfg, doc, examples}
+func NewType(cfg *Config, docPkg *doc.Package, doc *doc.Type, allPackages []*doc.Package, examples []*doc.Example) *Type {
+	return &Type{cfg, docPkg, allPackages, doc, examples}
 }
 
 // Level provides the default level that headers for the type should be
@@ -52,7 +54,7 @@ func (typ *Type) Summary() string {
 // Doc provides the structured contents of the documentation comment for the
 // type.
 func (typ *Type) Doc() *Doc {
-	return NewDoc(typ.cfg.Inc(1), typ.doc.Doc)
+	return NewDoc(typ.cfg.Inc(1), typ.docPkg, typ.allPackages, typ.doc.Doc)
 }
 
 // Decl provides the raw text representation of the code for the type's
@@ -77,7 +79,7 @@ func (typ *Type) Examples() (examples []*Example) {
 			continue
 		}
 
-		examples = append(examples, NewExample(typ.cfg.Inc(1), name, example))
+		examples = append(examples, NewExample(typ.cfg.Inc(1), typ.docPkg, typ.allPackages, name, example))
 	}
 
 	return
@@ -100,7 +102,7 @@ func (typ *Type) isSubexample(exampleName string) bool {
 func (typ *Type) Funcs() []*Func {
 	funcs := make([]*Func, len(typ.doc.Funcs))
 	for i, fn := range typ.doc.Funcs {
-		funcs[i] = NewFunc(typ.cfg.Inc(1), fn, typ.examples)
+		funcs[i] = NewFunc(typ.cfg.Inc(1), typ.docPkg, typ.allPackages, fn, typ.examples)
 	}
 
 	return funcs
@@ -110,7 +112,7 @@ func (typ *Type) Funcs() []*Func {
 func (typ *Type) Methods() []*Func {
 	methods := make([]*Func, len(typ.doc.Methods))
 	for i, fn := range typ.doc.Methods {
-		methods[i] = NewFunc(typ.cfg.Inc(1), fn, typ.examples)
+		methods[i] = NewFunc(typ.cfg.Inc(1), typ.docPkg, typ.allPackages, fn, typ.examples)
 	}
 
 	return methods
@@ -120,7 +122,7 @@ func (typ *Type) Methods() []*Func {
 func (typ *Type) Consts() []*Value {
 	consts := make([]*Value, len(typ.doc.Consts))
 	for i, c := range typ.doc.Consts {
-		consts[i] = NewValue(typ.cfg.Inc(1), c)
+		consts[i] = NewValue(typ.cfg.Inc(1), typ.docPkg, typ.allPackages, c)
 	}
 
 	return consts
@@ -130,7 +132,7 @@ func (typ *Type) Consts() []*Value {
 func (typ *Type) Vars() []*Value {
 	vars := make([]*Value, len(typ.doc.Vars))
 	for i, v := range typ.doc.Vars {
-		vars[i] = NewValue(typ.cfg.Inc(1), v)
+		vars[i] = NewValue(typ.cfg.Inc(1), typ.docPkg, typ.allPackages, v)
 	}
 
 	return vars

@@ -2,6 +2,7 @@ package lang_test
 
 import (
 	"errors"
+	"go/doc"
 	"strings"
 	"testing"
 
@@ -75,7 +76,7 @@ func loadValue(dir, name string) (*lang.Value, error) {
 	}
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	if err != nil {
 		return nil, err
 	}

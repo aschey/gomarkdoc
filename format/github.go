@@ -61,6 +61,10 @@ func (f *GitHubFlavoredMarkdown) Link(text, href string) (string, error) {
 	return formatcore.Link(text, href), nil
 }
 
+func (f *GitHubFlavoredMarkdown) DocLink(text, path, href string) (string, error) {
+	return formatcore.DocLink(text, path, href), nil
+}
+
 // CodeHref generates an href to the provided code entry.
 func (f *GitHubFlavoredMarkdown) CodeHref(loc lang.Location) (string, error) {
 	// If there's no repo, we can't compute an href

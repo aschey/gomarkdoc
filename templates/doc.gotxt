@@ -1,10 +1,12 @@
 {{- range .Blocks -}}
 	{{- if eq .Kind "paragraph" -}}
-		{{- paragraph .Text -}}
+		{{- exec "text" .Text | paragraph -}}
 	{{- else if eq .Kind "code" -}}
-		{{- codeBlock "" .Text -}}
+		{{- exec "text" .Text | codeBlock -}}
 	{{- else if eq .Kind "header" -}}
-		{{- header .Level .Text -}}
+		{{- exec "text" .Text | header .Level -}}
+	{{- else if eq .Kind "list" -}}
+		{{- exec "text" .Text | paragraph -}}
 	{{- end -}}
 {{- end -}}
 

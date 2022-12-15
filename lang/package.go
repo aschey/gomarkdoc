@@ -21,9 +21,11 @@ type (
 	// Package holds documentation information for a package and all of the
 	// symbols contained within it.
 	Package struct {
-		cfg      *Config
-		doc      *doc.Package
-		examples []*doc.Example
+		cfg         *Config
+		doc         *doc.Package
+		fullDoc     *doc.Package
+		allPackages []*doc.Package
+		examples    []*doc.Example
 	}
 
 	// PackageOptions holds options related to the configuration of the package
@@ -41,14 +43,14 @@ type (
 // raw documentation constructs provided by the standard library. This is only
 // recommended for advanced scenarios. Most consumers will find it easier to use
 // NewPackageFromBuild instead.
-func NewPackage(cfg *Config, doc *doc.Package, examples []*doc.Example) *Package {
-	return &Package{cfg, doc, examples}
+func NewPackage(cfg *Config, doc *doc.Package, fullDoc *doc.Package, allPackages []*doc.Package, examples []*doc.Example) *Package {
+	return &Package{cfg, doc, fullDoc, allPackages, examples}
 }
 
 // NewPackageFromBuild creates a representation of a package's documentation
 // from the build metadata for that package. It can be configured using the
 // provided options.
-func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageOption) (*Package, error) {
+func NewPackageFromBuild(log logger.Logger, pkg *build.Package, allPackages []*doc.Package, opts ...PackageOption) (*Package, error) {
 	var options PackageOptions
 	for _, opt := range opts {
 		if err := opt(&options); err != nil {
@@ -71,6 +73,11 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 		return nil, err
 	}
 
+	fullDoc, err := getDocPkg(pkg, cfg.FileSet, true)
+	if err != nil {
+		return nil, err
+	}
+
 	files, err := parsePkgFiles(pkg, cfg.FileSet)
 	if err != nil {
 		return nil, err
@@ -78,7 +85,22 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 
 	examples := doc.Examples(files...)
 
-	return NewPackage(cfg, docPkg, examples), nil
+	return NewPackage(cfg, docPkg, fullDoc, allPackages, examples), nil
+}
+
+func GetDocPackage(pkg *build.Package, log logger.Logger, opts ...PackageOption) (*doc.Package, error) {
+	var options PackageOptions
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := NewConfig(log, wd, pkg.Dir, ConfigWithRepoOverrides(options.repositoryOverrides))
+	docPkg, err := getDocPkg(pkg, cfg.FileSet, true)
+	if err != nil {
+		return nil, err
+	}
+	return docPkg, nil
 }
 
 // PackageWithUnexportedIncluded can be used along with the NewPackageFromBuild
@@ -149,13 +171,13 @@ func (pkg *Package) Summary() string {
 // package.
 func (pkg *Package) Doc() *Doc {
 	// TODO: level should only be + 1, but we have special knowledge for rendering
-	return NewDoc(pkg.cfg.Inc(2), pkg.doc.Doc)
+	return NewDoc(pkg.cfg.Inc(2), pkg.fullDoc, pkg.allPackages, pkg.doc.Doc)
 }
 
 // Consts lists the top-level constants provided by the package.
 func (pkg *Package) Consts() (consts []*Value) {
 	for _, c := range pkg.doc.Consts {
-		consts = append(consts, NewValue(pkg.cfg.Inc(1), c))
+		consts = append(consts, NewValue(pkg.cfg.Inc(1), pkg.fullDoc, pkg.allPackages, c))
 	}
 
 	return
@@ -164,7 +186,7 @@ func (pkg *Package) Consts() (consts []*Value) {
 // Vars lists the top-level variables provided by the package.
 func (pkg *Package) Vars() (vars []*Value) {
 	for _, v := range pkg.doc.Vars {
-		vars = append(vars, NewValue(pkg.cfg.Inc(1), v))
+		vars = append(vars, NewValue(pkg.cfg.Inc(1), pkg.fullDoc, pkg.allPackages, v))
 	}
 
 	return
@@ -173,7 +195,7 @@ func (pkg *Package) Vars() (vars []*Value) {
 // Funcs lists the top-level functions provided by the package.
 func (pkg *Package) Funcs() (funcs []*Func) {
 	for _, fn := range pkg.doc.Funcs {
-		funcs = append(funcs, NewFunc(pkg.cfg.Inc(1), fn, pkg.examples))
+		funcs = append(funcs, NewFunc(pkg.cfg.Inc(1), pkg.fullDoc, pkg.allPackages, fn, pkg.examples))
 	}
 
 	return
@@ -182,7 +204,7 @@ func (pkg *Package) Funcs() (funcs []*Func) {
 // Types lists the top-level types provided by the package.
 func (pkg *Package) Types() (types []*Type) {
 	for _, typ := range pkg.doc.Types {
-		types = append(types, NewType(pkg.cfg.Inc(1), typ, pkg.examples))
+		types = append(types, NewType(pkg.cfg.Inc(1), pkg.fullDoc, typ, pkg.allPackages, pkg.examples))
 	}
 
 	return
@@ -204,7 +226,7 @@ func (pkg *Package) Examples() (examples []*Example) {
 			continue
 		}
 
-		examples = append(examples, NewExample(pkg.cfg.Inc(1), name, example))
+		examples = append(examples, NewExample(pkg.cfg.Inc(1), pkg.fullDoc, pkg.allPackages, name, example))
 	}
 
 	return
@@ -246,6 +268,31 @@ func findImportPath(dir string) (string, bool) {
 	relative = filepath.ToSlash(relative)
 
 	return path.Join(string(m[1]), relative), true
+}
+
+func getModule(dir string) (string, bool) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false
+	}
+
+	f, ok := findFileInParent(absDir, "go.mod", false)
+	if !ok {
+		return "", false
+	}
+	defer f.Close()
+
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "", false
+	}
+
+	m := goModRegex.FindSubmatch(b)
+	if m == nil {
+		return "", false
+	}
+
+	return string(m[1]), true
 }
 
 // findFileInParent looks for a file or directory of the given name within the

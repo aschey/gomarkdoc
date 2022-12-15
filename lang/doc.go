@@ -1,6 +1,8 @@
 package lang
 
 import (
+	"go/doc"
+	"go/doc/comment"
 	"regexp"
 	"strings"
 )
@@ -24,36 +26,38 @@ var (
 // with headers rendered by default at the heading level provided. Documentation
 // is separated into block level elements using the standard rules from golang's
 // documentation conventions.
-func NewDoc(cfg *Config, text string) *Doc {
-	// Replace CRLF with LF
-	rawText := []byte(normalizeDoc(text) + "\n")
-
+func NewDoc(cfg *Config, currentPkg *doc.Package, allPackages []*doc.Package, text string) *Doc {
+	doc := currentPkg.Parser().Parse(text)
+	module, _ := getModule(cfg.WorkDir)
 	var blocks []*Block
-	for len(rawText) > 0 {
-		// Blank lines (ignore)
-		if l, ok := parseBlankLine(rawText); ok {
-			rawText = rawText[l:]
-			continue
+	for _, block := range doc.Content {
+		switch block := block.(type) {
+		case *comment.Code:
+			text := NewTextBlock(PlainText, block.Text)
+			blocks = append(blocks, NewBlock(cfg.Inc(0), CodeBlock, NewText([]*TextBlock{text})))
+		case *comment.Heading:
+			text := textBlocks(block.Text, module, allPackages)
+			blocks = append(blocks, NewBlock(cfg.Inc(0), HeaderBlock, NewText(text)))
+		case *comment.List:
+			text := []*TextBlock{}
+			if block.BlankBefore() {
+				text = append(text, NewTextBlock(PlainText, "\n"))
+			}
+			for _, item := range block.Items {
+				text = append(text, NewTextBlock(PlainText, item.Number))
+				commentText := []comment.Text{}
+				for _, t := range item.Content {
+					p := t.(*comment.Paragraph)
+					commentText = append(commentText, p.Text...)
+				}
+				text = append(text, textBlocks(commentText, module, allPackages)...)
+				blocks = append(blocks, NewBlock(cfg.Inc(0), ListBlock, NewText(text)))
+			}
+			blocks = append(blocks, NewBlock(cfg.Inc(0), ListBlock, NewText(text)))
+		case *comment.Paragraph:
+			text := textBlocks(block.Text, module, allPackages)
+			blocks = append(blocks, NewBlock(cfg.Inc(0), ParagraphBlock, NewText(text)))
 		}
-
-		// Header
-		if b, l, ok := parseHeaderBlock(cfg, rawText); ok {
-			blocks = append(blocks, b)
-			rawText = rawText[l:]
-			continue
-		}
-
-		// Code block
-		if b, l, ok := parseCodeBlock(cfg, rawText); ok {
-			blocks = append(blocks, b)
-			rawText = rawText[l:]
-			continue
-		}
-
-		// Paragraph
-		b, l := parseParagraph(cfg, rawText)
-		blocks = append(blocks, b)
-		rawText = rawText[l:]
 	}
 
 	return &Doc{cfg, blocks}
@@ -71,81 +75,66 @@ func (d *Doc) Blocks() []*Block {
 	return d.blocks
 }
 
-func parseBlankLine(text []byte) (length int, ok bool) {
-	if l := blankLineRegex.Find(text); l != nil {
-		// Ignore blank lines
-		return len(l), true
-	}
-
-	return 0, false
-}
-
-func parseHeaderBlock(cfg *Config, text []byte) (block *Block, length int, ok bool) {
-	if l := headerRegex.Find(text); l != nil {
-		headerText := strings.TrimSpace(string(l))
-		return NewBlock(cfg.Inc(0), HeaderBlock, headerText), len(l), true
-	}
-
-	return nil, 0, false
-}
-
-func parseCodeBlock(cfg *Config, text []byte) (block *Block, length int, ok bool) {
-	l := spaceCodeBlockRegex.Find(text)
-	var indent rune
-	if l != nil {
-		indent = ' '
-	} else {
-		l = tabCodeBlockRegex.Find(text)
-		if l != nil {
-			indent = '\t'
-		} else {
-			return nil, 0, false
+func getImportType(link *comment.DocLink, allPackages []*doc.Package) string {
+	for _, pkg := range allPackages {
+		if pkg.ImportPath == link.ImportPath && pkg.Parser().LookupSym(link.Recv, link.Name) {
+			return getIdentifierType(link, pkg)
 		}
 	}
+	return ""
+}
 
-	lines := strings.Split(string(l), "\n")
-
-	minIndent := -1
-	for _, line := range lines {
-		for i, r := range line {
-			if r != indent && (minIndent == -1 || i < minIndent) {
-				minIndent = i
+func getIdentifierType(link *comment.DocLink, pkg *doc.Package) string {
+	for _, constIdent := range pkg.Consts {
+		for _, constName := range constIdent.Names {
+			if link.Name == constName {
+				return "const"
 			}
 		}
 	}
-
-	var trimmedBlock strings.Builder
-	for i, line := range lines {
-		if i > 0 {
-			trimmedBlock.WriteRune('\n')
+	for _, constIdent := range pkg.Vars {
+		for _, constName := range constIdent.Names {
+			if link.Name == constName {
+				return "var"
+			}
 		}
-
-		if len(strings.TrimSpace(line)) > 0 {
-			trimmedBlock.WriteString(line[minIndent:])
+	}
+	for _, funcIdent := range pkg.Funcs {
+		if funcIdent.Recv == link.Recv && funcIdent.Name == link.Name {
+			return "func"
+		}
+	}
+	for _, typeIdent := range pkg.Types {
+		if typeIdent.Name == link.Name {
+			return "type"
 		}
 	}
 
-	return NewBlock(cfg.Inc(0), CodeBlock, trimmedBlock.String()), len(l), true
+	return ""
 }
 
-func parseParagraph(cfg *Config, text []byte) (block *Block, length int) {
-	if loc := multilineRegex.FindIndex(text); loc != nil {
-		// Paragraph followed by something else
-		paragraph := strings.TrimSpace(string(text[:loc[1]]))
-		return NewBlock(cfg.Inc(0), ParagraphBlock, formatDocParagraph(paragraph)), loc[1]
-	}
+func textBlocks(text []comment.Text, module string, allPackages []*doc.Package) []*TextBlock {
+	blocks := []*TextBlock{}
+	for _, line := range text {
+		switch line := line.(type) {
+		case comment.Plain:
+			blocks = append(blocks, NewTextBlock(PlainText, string(line)))
+		case comment.Italic:
+			blocks = append(blocks, NewTextBlock(ItalicText, string(line)))
+		case *comment.Link:
+			blocks = append(blocks, NewLinkTextBlock(LinkText, textBlocks(line.Text, module, allPackages), "", line.URL))
+		case *comment.DocLink:
+			importType := getImportType(line, allPackages)
 
-	// Last paragraph
-	paragraph := strings.TrimSpace(string(text))
+			path := strings.Replace(line.ImportPath, module, "", 1)
+			href := importType
+			if line.Recv != "" {
+				href += " " + line.Recv
+			}
+			href += " " + line.Name
 
-	var mergedParagraph strings.Builder
-	for i, line := range strings.Split(paragraph, "\n") {
-		if i > 0 {
-			mergedParagraph.WriteRune(' ')
+			blocks = append(blocks, NewLinkTextBlock(DocLinkText, textBlocks(line.Text, module, allPackages), path, href))
 		}
-
-		mergedParagraph.WriteString(strings.TrimSpace(line))
 	}
-
-	return NewBlock(cfg.Inc(0), ParagraphBlock, mergedParagraph.String()), len(text)
+	return blocks
 }

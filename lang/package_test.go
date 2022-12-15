@@ -2,6 +2,7 @@ package lang_test
 
 import (
 	"go/build"
+	"go/doc"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,7 @@ func TestPackage_strings(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	is.Equal(pkg.Level(), 1) // level should be root
@@ -91,7 +92,7 @@ func TestPackage_textScanner(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	is.Equal(pkg.Level(), 1) // level should be root
@@ -115,7 +116,7 @@ func TestPackage_ioIoutil(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	is.Equal(pkg.Level(), 1) // level should be root
@@ -139,7 +140,7 @@ func TestPackage_encoding(t *testing.T) {
 	is.NoErr(err)
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	is.NoErr(err)
 
 	is.Equal(pkg.Level(), 1) // level should be root
@@ -172,7 +173,7 @@ func loadPackage(dir string) (*lang.Package, error) {
 	}
 
 	log := logger.New(logger.ErrorLevel)
-	pkg, err := lang.NewPackageFromBuild(log, buildPkg)
+	pkg, err := lang.NewPackageFromBuild(log, buildPkg, []*doc.Package{})
 	if err != nil {
 		return nil, err
 	}

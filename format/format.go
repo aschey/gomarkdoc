@@ -27,6 +27,8 @@ type Format interface {
 	// Link generates a link with the given text and href values.
 	Link(text, href string) (string, error)
 
+	DocLink(text, path, href string) (string, error)
+
 	// CodeHref generates an href to the provided code entry.
 	CodeHref(loc lang.Location) (string, error)
 
