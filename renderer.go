@@ -1,7 +1,6 @@
 package gomarkdoc
 
 import (
-	"fmt"
 	"strings"
 	"text/template"
 
@@ -37,6 +36,15 @@ func NewRenderer(opts ...RendererOption) (*Renderer, error) {
 		if err := opt(renderer); err != nil {
 			return nil, err
 		}
+	}
+	for override, val := range renderer.templateOverrides {
+		for template := range templates {
+			if template == override {
+				continue
+			}
+		}
+		// Add the new template if it isn't in the list of predefined templates
+		templates[override] = val
 	}
 
 	for name, tmplStr := range templates {
@@ -97,10 +105,6 @@ func execTemplate(t *template.Template) func(string, interface{}) (string, error
 // provided name using the value provided in the tmpl parameter.
 func WithTemplateOverride(name, tmpl string) RendererOption {
 	return func(renderer *Renderer) error {
-		if _, ok := templates[name]; !ok {
-			return fmt.Errorf(`gomarkdoc: invalid template name "%s"`, name)
-		}
-
 		renderer.templateOverrides[name] = tmpl
 
 		return nil

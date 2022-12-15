@@ -36,7 +36,7 @@ func NewDoc(cfg *Config, currentPkg *doc.Package, allPackages []*doc.Package, te
 			text := NewTextBlock(PlainText, block.Text)
 			blocks = append(blocks, NewBlock(cfg.Inc(0), CodeBlock, NewText([]*TextBlock{text})))
 		case *comment.Heading:
-			text := textBlocks(block.Text, module, allPackages)
+			text := textBlocks(block.Text, module, currentPkg, allPackages)
 			blocks = append(blocks, NewBlock(cfg.Inc(0), HeaderBlock, NewText(text)))
 		case *comment.List:
 			text := []*TextBlock{}
@@ -50,12 +50,12 @@ func NewDoc(cfg *Config, currentPkg *doc.Package, allPackages []*doc.Package, te
 					p := t.(*comment.Paragraph)
 					commentText = append(commentText, p.Text...)
 				}
-				text = append(text, textBlocks(commentText, module, allPackages)...)
+				text = append(text, textBlocks(commentText, module, currentPkg, allPackages)...)
 				blocks = append(blocks, NewBlock(cfg.Inc(0), ListBlock, NewText(text)))
 			}
 			blocks = append(blocks, NewBlock(cfg.Inc(0), ListBlock, NewText(text)))
 		case *comment.Paragraph:
-			text := textBlocks(block.Text, module, allPackages)
+			text := textBlocks(block.Text, module, currentPkg, allPackages)
 			blocks = append(blocks, NewBlock(cfg.Inc(0), ParagraphBlock, NewText(text)))
 		}
 	}
@@ -75,7 +75,11 @@ func (d *Doc) Blocks() []*Block {
 	return d.blocks
 }
 
-func getImportType(link *comment.DocLink, allPackages []*doc.Package) string {
+func getImportType(link *comment.DocLink, currentPkg *doc.Package, allPackages []*doc.Package) string {
+	if link.ImportPath == "" {
+		// If no import path, this is a link to the current package
+		return getIdentifierType(link, currentPkg)
+	}
 	for _, pkg := range allPackages {
 		if pkg.ImportPath == link.ImportPath && pkg.Parser().LookupSym(link.Recv, link.Name) {
 			return getIdentifierType(link, pkg)
@@ -113,7 +117,7 @@ func getIdentifierType(link *comment.DocLink, pkg *doc.Package) string {
 	return ""
 }
 
-func textBlocks(text []comment.Text, module string, allPackages []*doc.Package) []*TextBlock {
+func textBlocks(text []comment.Text, module string, currentPkg *doc.Package, allPackages []*doc.Package) []*TextBlock {
 	blocks := []*TextBlock{}
 	for _, line := range text {
 		switch line := line.(type) {
@@ -122,18 +126,22 @@ func textBlocks(text []comment.Text, module string, allPackages []*doc.Package) 
 		case comment.Italic:
 			blocks = append(blocks, NewTextBlock(ItalicText, string(line)))
 		case *comment.Link:
-			blocks = append(blocks, NewLinkTextBlock(LinkText, textBlocks(line.Text, module, allPackages), "", line.URL))
+			blocks = append(blocks, NewLinkTextBlock(LinkText, textBlocks(line.Text, module, currentPkg, allPackages), "", line.URL))
 		case *comment.DocLink:
-			importType := getImportType(line, allPackages)
-
-			path := strings.Replace(line.ImportPath, module, "", 1)
+			importType := getImportType(line, currentPkg, allPackages)
+			replaceStr := line.ImportPath
+			if line.ImportPath == "" {
+				// If no import path, this is a link to the current package
+				replaceStr = currentPkg.ImportPath
+			}
+			path := strings.Replace(replaceStr, module, "", 1)
 			href := importType
 			if line.Recv != "" {
 				href += " " + line.Recv
 			}
 			href += " " + line.Name
 
-			blocks = append(blocks, NewLinkTextBlock(DocLinkText, textBlocks(line.Text, module, allPackages), path, href))
+			blocks = append(blocks, NewLinkTextBlock(DocLinkText, textBlocks(line.Text, module, currentPkg, allPackages), path, href))
 		}
 	}
 	return blocks
